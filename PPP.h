@@ -2,7 +2,7 @@
  * Author:    Le Thieu Bao (https://github.com/lebaoworks)
  * Created:   07.09.2021
  * 
- * Based on RFC 1661, RFC 1994
+ * Based on RFC 1661, RFC 1994, RFC 1334
  **/
 
 #pragma once
@@ -84,13 +84,20 @@ typedef struct _LCP_CONFIG_DATA
 //          Type: Type of LCP Packet
 //          Length: A number used to match requests and replies
 //          Authentication-Protocol: indicates the authentication protocol desired
-typedef struct _LCP_OPTION_AUTH
+typedef struct _LCP_OPTION_AUTH_CHAP
 {
     uint8_t type;
     uint8_t length;
     uint16_t auth_proto;
     uint8_t algorithm;
-} LCP_OPTION_AUTH;
+} LCP_OPTION_AUTH_CHAP;
+
+typedef struct _LCP_OPTION_AUTH_PAP
+{
+    uint8_t type;
+    uint8_t length;
+    uint16_t auth_proto;
+} LCP_OPTION_AUTH_PAP;
 
 #define LCP_TYPE_RESERVE                    0
 #define LCP_TYPE_MAXIMUM_RECEIVE            1
@@ -105,7 +112,90 @@ typedef struct _LCP_OPTION_AUTH
 #define LCP_AUTH_CHAP_ALGORITHM_MD5 5
 
 
+//----------------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------------//
 
+
+// PAP PACKET FORMAT
+//     0                   1                   2                   3
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |     Code      |  Identifier   |            Length             |        PAP Header
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |    Data...                                                             PAP Data
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//      (RFC 1334) - Section 2.2 Packet Format
+//      PAP Header:
+//          Code: Type of packet
+//          Indentifier: A number used to match requests and replies
+//          Length: Size of packet including the header
+typedef struct _PAP_HEADER
+{
+    uint8_t code;
+    uint8_t identifier;
+    uint16_t length;
+} PAP_HEADER;
+typedef struct _PAP_PACKET
+{
+    PAP_HEADER header;
+    uint8_t data[PACKET_MAX_DATA_LENGTH];
+    
+    // addition
+    int data_len;
+} PAP_PACKET;
+
+#define PAP_CODE_AUTH_REQUEST   1
+#define PAP_CODE_ACK            2
+#define PAP_CODE_NAK            3
+
+// PAP AUTHENTICATION REQUEST DATA FORMAT
+//     0                   1                   2                   3
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     | Peer-ID Length|  Peer-Id ...
+//     +-+-+-+-+-+-+-+-+-+-+-+-+                                                PAP Data
+//     | Passwd-Length |  Password  ...
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//      (RFC 1334) - Section 2.2.1 Authenticate-Request
+//      PAP Data:
+//          Peer-ID Length: indicates the length of the Peer-ID field
+//          Peer-ID: zero or more octets and indicates the name of the peer to be authenticated
+//          Passwd-Length: indicates the length of the Password field
+//          Password: zero or more octets and indicates the password to be used for authentication
+typedef struct _PAP_REQUEST_DATA
+{
+    uint8_t peer_id_length;
+    uint8_t* peer_id;
+    uint16_t password_length;
+    uint8_t* password;
+} PAP_REQUEST_DATA;
+
+// PAP RESPONSE DATA
+//     0                   1                   2                   3
+//     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |  Msg-Length   |  Message  ...                                          PAP Data
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-
+//
+//      (RFC 1334) - Section 2.2.2  Authenticate-Ack and Authenticate-Nak
+//      PAP Data:
+//          Msg-Length: indicates the length of the Message field
+//          Message: zero or more octets, and its contents are implementation dependent.
+//              It is intended to be human readable, and MUST NOT affect operation of the protocol
+typedef struct _PAP_RESPONSE_DATA
+{
+    int message_length;
+    uint8_t* message;
+} PAP_RESPONSE_DATA;
+
+
+
+//----------------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------------//
+//----------------------------------------------------------------------------------------------------------------//
 
 
 
@@ -118,7 +208,7 @@ typedef struct _LCP_OPTION_AUTH
 //     |    Data...                                                             CHAP Data
 //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
-//      (RFC 1994)
+//      (RFC 1994) - Section 4  Packet Format
 //      CHAP Header:
 //          Code: Type of packet
 //          Indentifier: A number used to match requests and replies
@@ -179,8 +269,8 @@ typedef struct _CHAP_REQUEST_DATA
 //              It is intended to be human readable, and MUST NOT affect operation of the protocol.
 typedef struct _CHAP_SUCCESS_DATA
 {
-    int message_size;
     uint8_t* message;
+    int message_size;
 } CHAP_SUCCESS_DATA, CHAP_FAILURE_DATA;
 
 
@@ -220,6 +310,40 @@ int lcp_parse_packet(LCP_PACKET* packet, uint8_t type, void* packet_data)
             if (i!=packet->data_len)
                 return -1;
             return 0;
+        }
+        default:
+            return -1;
+    }
+}
+
+int pap_recv_packet(int fd, PAP_PACKET* packet)
+{
+    if (net_recvn(fd, (char*) packet, sizeof(PAP_HEADER)) != sizeof(PAP_HEADER))
+        return -1;        
+    if (net_recvn(fd, (char*) packet->data, packet->header.length - sizeof(PAP_HEADER)) != packet->header.length - sizeof(PAP_HEADER))
+        return -1;
+    packet->data_len = packet->header.length - sizeof(PAP_HEADER);
+    return 0;
+}
+int pap_parse_packet(PAP_PACKET* packet, uint8_t type, void* packet_data)
+{
+    switch (type)
+    {
+        case (PAP_CODE_AUTH_REQUEST):
+        {
+            PAP_REQUEST_DATA* pap_request_data = (PAP_REQUEST_DATA*) packet_data;
+            pap_request_data->peer_id_length = packet->data[0];
+            pap_request_data->peer_id = packet->data + 1;
+            pap_request_data->password_length = packet->data[1 + packet->data[0]];
+            pap_request_data->password = packet->data + 1 + packet->data[0] + 1;
+            return 0;
+        }
+        case (PAP_CODE_ACK):
+        case (PAP_CODE_NAK):
+        {
+            PAP_RESPONSE_DATA* pap_response_data = (PAP_RESPONSE_DATA*) packet_data;
+            pap_response_data->message_length = packet->data[0];
+            pap_response_data->message = packet->data + 1;
         }
         default:
             return -1;

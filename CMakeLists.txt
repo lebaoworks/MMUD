@@ -6,6 +6,7 @@ find_package(MbedTLS)
 
 set(executables
     CHAP
+    PAP
 )
 
 foreach(exe IN LISTS executables)

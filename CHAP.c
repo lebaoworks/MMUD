@@ -6,23 +6,23 @@
  *      Documentation: https://www.ietf.org/rfc/rfc1994.txt
  * 
  * Basic flow:
- *     .-               link establishment
- *     |        Peer ---------------------> Authenticator ---.
- *   1-*                                                     | Generate random as challenge ingeredient
- *     |               challenge ingeredient                 v
- *     |_   .-- Peer <--------------------- Authenticator <--'
- *     .-   |
- *     |    | Calculate challenge answer from secret and challenge ingredient
- *   2-*    |
- *     |    |           challenge answer
- *     |_   '-> Peer ---------------------> Authenticator ---.
- *     .-                                                    | Calculate challenge answer from secret saved
- *     |                                                     |      and compare with the one from Peer
- *     |                       FAIL                        F v
- *   3-*  X <-- Peer <--------------------- Authenticator <--'
- *     |                                                     | T
- *     |                      SUCCESS                        v   
- *     |_       Peer <--------------------- Authenticator <--'
+ *                      link establishment
+ *              Peer ---------------------> Authenticator ---.
+ *                                                           | Generate random as challenge ingeredient
+ *                     challenge ingeredient                 v
+ *          .-- Peer <--------------------- Authenticator <--'
+ *          |
+ *          | Calculate challenge answer from secret and challenge ingredient
+ *          |
+ *          |           challenge answer
+ *          '-> Peer ---------------------> Authenticator ---.
+ *                                                           | Calculate challenge answer from secret saved
+ *                                                           |      and compare with the one from Peer
+ *                             FAIL                        F v
+ *        X <-- Peer <--------------------- Authenticator <--'
+ *                                                           | T
+ *                            SUCCESS                        v   
+ *              Peer <--------------------- Authenticator <--'
  * 
  * Note:
  *      This is demostration about a scenario which CHAP authenticate smoothly.
@@ -67,16 +67,16 @@ void peer_handler(int auth_fd)
     //              Authentication-Protocol: 0xC223 (Challenge-Handshake Authentication Protocol)
     //              Algorithm: 5 (CHAP with MD5)  
     LCP_PACKET* lcp_packet = (LCP_PACKET*) buffer;
-    LCP_OPTION_AUTH* lcp_option_auth = (LCP_OPTION_AUTH*) lcp_packet->data;
+    LCP_OPTION_AUTH_CHAP* lcp_option_auth = (LCP_OPTION_AUTH_CHAP*) lcp_packet->data;
     // write option data
     lcp_option_auth->type = LCP_TYPE_AUTHENTICATION;
-    lcp_option_auth->length = sizeof(LCP_OPTION_AUTH);
+    lcp_option_auth->length = sizeof(LCP_OPTION_AUTH_CHAP);
     lcp_option_auth->auth_proto = LCP_AUTH_PROTO_CHAP;
     lcp_option_auth->algorithm = LCP_AUTH_CHAP_ALGORITHM_MD5;
     // write header
     lcp_packet->header.code = LCP_CODE_CONFIG_REQUEST;
     lcp_packet->header.identifier = 1;
-    lcp_packet->header.length = sizeof(LCP_HEADER) + sizeof(LCP_OPTION_AUTH);
+    lcp_packet->header.length = sizeof(LCP_HEADER) + sizeof(LCP_OPTION_AUTH_CHAP);
     // send packet
     net_sendn(auth_fd, (char*) lcp_packet, lcp_packet->header.length);
     printf("[*] Sent CONFIG_REQUEST\n");
@@ -167,9 +167,25 @@ void peer_handler(int auth_fd)
         return;
     }
     if (chap_packet->header.code == CHAP_CODE_SUCCESS)
+    {
         printf("[+] Authenticated -> success\n");
+        printf("\tMessage: ");
+        for (int i=0; i<chap_packet->header.length - sizeof(CHAP_HEADER); i++)
+            printf("%c", chap_packet->data[i]);
+        printf("\n");
+    }
     else
-        printf("[-] Authenticated -> fail\n");
+        if (chap_packet->header.code == CHAP_CODE_FAILURE)
+        {
+            printf("[-] Authenticated -> fail\n");
+            printf("[+] Authenticated -> success\n");
+            printf("\tMessage: ");
+            for (int i=0; i<chap_packet->header.length - sizeof(CHAP_HEADER); i++)
+                printf("%c", chap_packet->data[i]);
+            printf("\n");
+        }
+    else
+        printf("[!] PACKET -> not expected\n");
 }
 
 void auth_handler(int peer_fd, struct sockaddr_in* peer_addr)
@@ -188,7 +204,7 @@ void auth_handler(int peer_fd, struct sockaddr_in* peer_addr)
         return;
     }
     // peer send only 1 option (authentication option)
-    LCP_OPTION_AUTH* lcp_option_auth = (LCP_OPTION_AUTH*) lcp_packet->data;
+    LCP_OPTION_AUTH_CHAP* lcp_option_auth = (LCP_OPTION_AUTH_CHAP*) lcp_packet->data;
     printf("[*] got CONFIG_REQUEST:\n\tType: %u\n\tLength: %u\n\tProtocol: 0x%X\n\tAlgorithm: %u\n",
         lcp_option_auth->type,
         lcp_option_auth->length,
