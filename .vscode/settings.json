@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "socket.h": "c",
+        "md5.h": "c",
+        "stdbool.h": "c",
+        "sstream": "c",
+        "net.h": "c",
+        "optional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "ratio": "c",
+        "system_error": "c",
+        "array": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "typeinfo": "cpp"
+    }
+}
