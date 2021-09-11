@@ -1,9 +1,9 @@
 README
 ===================
 
-This repository is only for educational purposes.
+This repository is for educational purposes only.
 
-Has tested on WSL1 Ubuntu 20.04.3 LTS
+Tested on WSL1 Ubuntu 20.04.3 LTS
 
 ## Requirements
 ---------
