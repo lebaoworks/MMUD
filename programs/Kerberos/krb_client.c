@@ -61,14 +61,14 @@ void as_handler(int server_fd)
     //
     // Receive response
     //
-    net_recvn(server_fd, &as_response, sizeof(AS_RESPONSE));
+    net_recvn(server_fd, (char*) &as_response, sizeof(AS_RESPONSE));
     printf("[+] Recv AS_RESPONSE\n");
 
     // Export SessionKey
     Key key;
     memset(key, 0, sizeof(Key));
     memcpy(key, user_pass[USERID], strlen(user_pass[USERID]));
-    aes_decrypt(&aes, key, 16, &as_response.message_a, &as_response.message_a);
+    aes_decrypt(&aes, key, 16, (char*) &as_response.message_a, (char*) &as_response.message_a);
     printf("[+] Got TGS_SessionKey: ");
     for (int i=0; i<sizeof(Key); i++)
         printf("%02X", as_response.message_a.session_key[i]);
@@ -88,16 +88,16 @@ void tgs_handler(int server_fd)
     //      Generate MessageD
     tgs_request.message_d.id = USERID;
     tgs_request.message_d.timestamp = time(NULL);
-    aes_encrypt(&aes, TGS_SessionKey, sizeof(Key), &tgs_request.message_d, &tgs_request.message_d);
+    aes_encrypt(&aes, TGS_SessionKey, sizeof(Key), (char*) &tgs_request.message_d, (char*) &tgs_request.message_d);
     //      Send
     net_sendn(server_fd, (char*) &tgs_request, sizeof(TGS_REQUEST));
 
     //
     // Receive Response
     //
-    net_recvn(server_fd, &tgs_response, sizeof(TGS_RESPONSE));
+    net_recvn(server_fd, (char*) &tgs_response, sizeof(TGS_RESPONSE));
     Key SS_SessionKey;
-    aes_decrypt(&aes, TGS_SessionKey, sizeof(Key), &tgs_response.message_f, &tgs_response.message_f);
+    aes_decrypt(&aes, TGS_SessionKey, sizeof(Key), (char*) &tgs_response.message_f, (char*) &tgs_response.message_f);
     printf("[+] Got SS_SessionKey: ");
     for (int i=0; i<sizeof(Key); i++)
         printf("%02X", tgs_response.message_f.session_key[i]);
@@ -117,16 +117,16 @@ void ss_handler(int server_fd)
     //      Generate MessageG
     ss_request.message_g.id = USERID;
     ss_request.message_g.timestamp = time(NULL);
-    aes_encrypt(&aes, SS_SessionKey, sizeof(Key), &ss_request.message_g, &ss_request.message_g);
+    aes_encrypt(&aes, SS_SessionKey, sizeof(Key), (char*) &ss_request.message_g, (char*) &ss_request.message_g);
     //      Send
     net_sendn(server_fd, (char*) &ss_request, sizeof(SS_REQUEST));
 
     //
     // Receive Response
     //
-    net_recvn(server_fd, &ss_response, sizeof(SS_RESPONSE));
-    aes_decrypt(&aes, SS_SessionKey, sizeof(Key), &ss_response, &ss_response);
-    printf("[+] Got timestamp: %d\n", ss_response.timestamp);
+    net_recvn(server_fd, (char*) &ss_response, sizeof(SS_RESPONSE));
+    aes_decrypt(&aes, SS_SessionKey, sizeof(Key), (char*) &ss_response, (char*) &ss_response);
+    printf("[+] Got timestamp: %d\n", (int) ss_response.timestamp);
     printf("\n");
 }
 int main(void)
