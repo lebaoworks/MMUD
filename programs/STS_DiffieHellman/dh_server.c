@@ -1,7 +1,32 @@
 /**
  * Author:    Le Thieu Bao (https://github.com/lebaoworks)
- * Created:   07.09.2021
+ * Created:   08.09.2021
  * 
+ * Demonstration of Diffie-Hellman key exchange
+ *      Documentation: https://www.ietf.org/rfc/rfc5246.txt
+ * 
+ * Basic flow:
+ *      P: modulus
+ *      G: primitive root modulo of P
+ *      Ys/Yc: Server public/Client public
+ *      Xs/Xc: Server secret/Client secret
+ *      
+ * 
+ *                      (P, G, Ys) - Signed
+ *        .--- Client <--------------------- Server
+ *        | Verify sign
+ *        | Generate secret Xc
+ *        | Derive shared secret: K = Ys ^ Xc mod P
+ *        |    
+ *        v            Yc = G ^ Xc mod P
+ *        '-- Client ---------------------> Server ---.
+ *                                                    | Derive shared secret: K = Yc ^ Xs mod P
+ *                      Encrypted Message             | Encrypt message using shared secret
+ *        .-- Client <--------------------- Server <--'
+ *        | Decrypted message
+ *        |  using shared secret
+ *        v
+ *      
  **/
 
 #include <stdio.h>
@@ -290,7 +315,7 @@ void auth_handler(int client_fd, struct sockaddr_in* client_addr)
     }
 
     //
-    // Derive the shared secret: K = Ys ^ Xc mod P
+    // Derive the shared secret: K = Yc ^ Xs mod P
     //
     printf("[*] Shared secret: ");
     if ((ret = mbedtls_dhm_calc_secret(
