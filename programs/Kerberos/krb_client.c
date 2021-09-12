@@ -2,22 +2,42 @@
  * Author:    Le Thieu Bao (https://github.com/lebaoworks)
  * Created:   10.09.2021
  * 
+ * Demonstration of Kerberos authentication scheme.
+ * 
  * Basic flow:      
- *      
+ * 
  *                           UserID
- *            Client ---------------------> Server ---.
- *                                                    | if UserID is in database,
- *                      Encrypted Message             |     Generate MessageA by encrypt SessionKey using UserPassword
- *                                                    |     Generate MessageB by encrypt Ticket-Granting-Ticket using
- *                      MessageA, MessageB            |         TGS secret
- *        .-- Client <--------------------- Server <--'
+ *            Client ---------------------> AS Server ---.
+ *                                                       | if UserID is in database,
+ *                                                       |     Generate MessageA by encrypt SessionKey using UserPassword
+ *                                                       |     Generate MessageB by encrypt Ticket-Granting-Ticket
+ *                                                       |          (Key+UserID+Address+Validity) using TGS secret
+ *                      MessageA, MessageB               |         
+ *        .-- Client <--------------------- AS Server <--'
  *        | 
  *        | Decrypted MessageA to get SessionKey
- *        |     used for further communications with the TGS
- *        |
- *        '-> Connect to TGS
- 
- */
+ *        | Generate MessageC by compose MessageB with ID of requested service 
+ *        | Generate MessageD by encrypt (UserID, timestamp) using SessionKey
+ *        |            MessageC, MessageD            
+ *        '-> Client ---------------------> TGS Server --.
+ *                                                       | use TGS_KEY decrypt MessageC to get TGS_SessionKey 
+ *                                                       | use TGS_SessionKey decrypt MessageD to get UserID and timestamp
+ *                                                       | validify UserID and timestamp
+ *                                                       | Generate MessageE by encrypt (SS_SessionKey+UserID+Address+Validity)
+ *                                                       |      with SS secret
+ *                       MessageE, MessageF              | Generate MessageF by encrypt SS_SessionKey with TGS_SessionKey
+ *        .-- Client <--------------------- TGS Server --'
+ *        | 
+ *        | Decrypted MessageF to get SessionKey
+ *        | Generate MessageG by encrypt (UserID, timestamp) using SS_SessionKey
+ *        |            MessageE, MessageG            
+ *        '-> Client ---------------------> SS Server --.
+ *                                                      | use SS secret decrypt MessageE to get SS_SessionKey 
+ *                                                      | use SS_SessionKey decrypt MessageG to get UserID and timestamp
+ *                                                      | validify UserID and timestamp
+ *                       MessageH                       | Generate MessageH by encrypt timestamp with SS_SessionKey
+ *           Client <--------------------- TGS Server --'
+ **/
 
 
 #include <stdio.h>
