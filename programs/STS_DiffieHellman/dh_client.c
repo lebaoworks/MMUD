@@ -182,7 +182,7 @@ void peer_handler(int server_fd)
     buf[16] = '\0';
     printf("\t[+] Text: %s\n", (char*) buf);
 }
-int main( void )
+int main(void)
 {
     init();
 
@@ -192,4 +192,5 @@ int main( void )
     else
         printf("Can not connect to authenticator!\n");
     close(fd);
+    return 0;
 }
