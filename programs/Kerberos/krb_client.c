@@ -36,7 +36,7 @@
  *                                                      | use SS_SessionKey decrypt MessageG to get UserID and timestamp
  *                                                      | validify UserID and timestamp
  *                       MessageH                       | Generate MessageH by encrypt timestamp with SS_SessionKey
- *           Client <--------------------- TGS Server --'
+ *           Client <---------------------  SS Server --'
  **/
 
 
